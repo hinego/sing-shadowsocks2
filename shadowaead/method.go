@@ -2,7 +2,6 @@ package shadowaead
 
 import (
 	"context"
-	"crypto/aes"
 	"crypto/cipher"
 	"net"
 
@@ -16,16 +15,11 @@ import (
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/common/rw"
-
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
 var MethodList = []string{
-	"aes-128-gcm",
-	"aes-192-gcm",
-	"aes-256-gcm",
 	"chacha20-ietf-poly1305",
-	"xchacha20-ietf-poly1305",
 }
 
 func init() {
@@ -43,21 +37,9 @@ type Method struct {
 func NewMethod(ctx context.Context, methodName string, options C.MethodOptions) (*Method, error) {
 	m := &Method{}
 	switch methodName {
-	case "aes-128-gcm":
-		m.keySaltLength = 16
-		m.constructor = aeadCipher(aes.NewCipher, cipher.NewGCM)
-	case "aes-192-gcm":
-		m.keySaltLength = 24
-		m.constructor = aeadCipher(aes.NewCipher, cipher.NewGCM)
-	case "aes-256-gcm":
-		m.keySaltLength = 32
-		m.constructor = aeadCipher(aes.NewCipher, cipher.NewGCM)
 	case "chacha20-ietf-poly1305":
 		m.keySaltLength = 32
 		m.constructor = chacha20poly1305.New
-	case "xchacha20-ietf-poly1305":
-		m.keySaltLength = 32
-		m.constructor = chacha20poly1305.NewX
 	}
 	if len(options.Key) == m.keySaltLength {
 		m.key = options.Key
@@ -69,16 +51,6 @@ func NewMethod(ctx context.Context, methodName string, options C.MethodOptions) 
 		m.key = legacykey.Key([]byte(options.Password), m.keySaltLength)
 	}
 	return m, nil
-}
-
-func aeadCipher(block func(key []byte) (cipher.Block, error), aead func(block cipher.Block) (cipher.AEAD, error)) func(key []byte) (cipher.AEAD, error) {
-	return func(key []byte) (cipher.AEAD, error) {
-		b, err := block(key)
-		if err != nil {
-			return nil, err
-		}
-		return aead(b)
-	}
 }
 
 func (m *Method) DialConn(conn net.Conn, destination M.Socksaddr) (net.Conn, error) {
